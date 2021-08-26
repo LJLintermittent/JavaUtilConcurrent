@@ -1,5 +1,6 @@
 package com.duanxu.proxy.jdkproxy;
 
+
 /**
  * Description:
  * date: 2021/8/26 22:59
@@ -15,6 +16,5 @@ public class JDKProxyTest {
         UserServiceImpl userService = new UserServiceImpl();
         UserService proxy = (UserService) JDKProxyFactory.getProxy(userService);
         proxy.login("李佳乐", "whynot?");
-
     }
 }
