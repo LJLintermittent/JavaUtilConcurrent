@@ -16,7 +16,6 @@ import java.util.List;
 public class OOMTest2 {
     public static void main(String[] args) throws InterruptedException {
 
-
         //当一个线程OOM以后，jvm堆内存空间抖动，证明释放掉了线程的内存资源，但是不影响其他线程的运行
         //发生oom的线程一般情况下会死亡，也就是被终结了
         Thread.sleep(15000);
