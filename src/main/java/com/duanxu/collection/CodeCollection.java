@@ -1,9 +1,6 @@
 package com.duanxu.collection;
 
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.PriorityQueue;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * Description:
@@ -16,7 +13,7 @@ import java.util.TreeMap;
 @SuppressWarnings("all")
 public class CodeCollection {
 
-    public static void main(String[] args) throws CloneNotSupportedException {
+    public static void main(String[] args) throws CloneNotSupportedException, InterruptedException {
         //相比于hashmap，treeMap主要多了对集合内元素根据键来排序的能力，以及对集合内元素进行搜索的能力
         TreeMap<String, Integer> treeMap = new TreeMap<>(new Comparator<String>() {
             @Override
@@ -47,5 +44,29 @@ public class CodeCollection {
         set.add(2);
         set.add(1);
         System.out.println(set);
+
+        Map<String, Integer> map = new HashMap<>();
+        map.put("a", 1);
+        map.put("b", 2);
+        map.put("c", 3);
+
+        //lambda表达式的方式遍历hashmap
+        map.forEach((key, value) -> {
+            System.out.print("key：" + key + " ");
+            System.out.println("value：" + value);
+        });
+
+        //单线程stream流
+        map.entrySet().stream().forEach(entry -> {
+            System.out.print(entry.getKey());
+            System.out.println(entry.getValue());
+        });
+
+        //多线程stream流
+        map.entrySet().parallelStream().forEach(entry -> {
+            System.out.print(entry.getKey());
+            System.out.println(entry.getValue());
+        });
+
     }
 }
