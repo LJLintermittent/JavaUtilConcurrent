@@ -1,6 +1,8 @@
 package com.duanxu.collection;
 
+
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Description:
@@ -75,6 +77,19 @@ public class CodeCollection {
             System.out.println(entry.getKey());
             System.out.println(entry.getValue());
         }
+        Integer[] nums = {1, 2, 3};
+        List<Integer> list = Arrays.stream(nums).collect(Collectors.toList());
+        System.out.println(list);
+        System.out.println(list instanceof ArrayList);//true
+        int[] nums1 = {1, 2, 2, 2};
+        //将基本数组类型的数组转为List，需要调用boxed自动装箱
+        //    @Override
+        //    public final Stream<Integer> boxed() {
+        //        return mapToObj(Integer::valueOf);
+        //    }
+        List<Integer> list2 = Arrays.stream(nums1).boxed().collect(Collectors.toList());
+        System.out.println(list2);
 
     }
+
 }
