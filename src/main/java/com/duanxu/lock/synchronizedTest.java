@@ -11,13 +11,13 @@ package com.duanxu.lock;
 @SuppressWarnings("all")
 public class synchronizedTest {
 
-    private static volatile int counter = 0;
+    private static int counter = 0;
 
     public static void main(String[] args) throws InterruptedException {
         for (int i = 0; i < 10; i++) {
             new Thread(() -> {
                 for (int j = 0; j < 10000; j++) {
-                    add1();
+                    add2();
                 }
             }, String.valueOf(i)).start();
         }
@@ -25,14 +25,14 @@ public class synchronizedTest {
         System.out.println(counter);
     }
 
-    public synchronized static void add1() {
-        counter++;
-    }
-
-//    public static void add2() {
-//        synchronized (synchronizedTest.class) {
-//            counter++;
-//        }
+//    public synchronized static void add1() {
+//        counter++;
 //    }
+
+    public static void add2() {
+        synchronized (synchronizedTest.class) {
+            counter++;
+        }
+    }
 
 }
