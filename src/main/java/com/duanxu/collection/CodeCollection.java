@@ -68,5 +68,13 @@ public class CodeCollection {
             System.out.println(entry.getValue());
         });
 
+        //迭代器
+        Iterator<Map.Entry<String, Integer>> iterator = map.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Integer> entry = iterator.next();
+            System.out.println(entry.getKey());
+            System.out.println(entry.getValue());
+        }
+
     }
 }
