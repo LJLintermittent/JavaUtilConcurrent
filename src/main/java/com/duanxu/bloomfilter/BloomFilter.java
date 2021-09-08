@@ -14,13 +14,13 @@ import java.util.BitSet;
 public class BloomFilter {
 
     public static void main(String[] args) {
-        String s = "aaa";
-        String s1 = "bb";
         BloomFilter bloomFilter = new BloomFilter();
-        System.out.println(bloomFilter.contains(s));
-        bloomFilter.add(s);
-        bloomFilter.add(s1);
-        System.out.println(bloomFilter.contains(s));
+        //10000000
+        for (int i = 0; i < 10000000; i++) {
+            String s = "www.bai.com" + i;
+            bloomFilter.add(s);
+        }
+        System.out.println(bloomFilter.contains("www.bai.comxx99"));
     }
 
     private static final int DEFAULT_SIZE = 2 << 24;
