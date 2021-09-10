@@ -20,11 +20,18 @@ public class UserServiceInvocationHandler implements InvocationHandler {
         this.target = target;
     }
 
+    /**
+     * @param proxy  动态生成的代理类
+     * @param method 与代理对象调用的方法相对应
+     * @param args   当前调用的方法的参数
+     * @return
+     * @throws Throwable
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        System.out.println("代理的是："+method.getName() + "方法，在目标方法之前执行");
+        System.out.println("代理的是：" + method.getName() + "方法，在目标方法之前执行");
         Object result = method.invoke(target, args);
-        System.out.println("代理的是："+method.getName() + "方法，在目标方法之后执行");
+        System.out.println("代理的是：" + method.getName() + "方法，在目标方法之后执行");
         return result;
     }
 }
