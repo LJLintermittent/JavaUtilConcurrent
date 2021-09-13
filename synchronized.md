@@ -153,7 +153,6 @@ synchronized也可以保证变量的可见性：
 
 在jdk_8_hotspot虚拟机源码中的markOop.hpp文件中的代码注释片段里，分别描述了32位和64位下mark-word的存储状态
 
-​~~~c++
 //  64 bits:
 //  --------
 //  unused:25 hash:31 -->| unused:1   age:4    biased_lock:1 lock:2 (normal object)
@@ -165,17 +164,17 @@ synchronized也可以保证变量的可见性：
 //  JavaThread*:54 epoch:2 cms_free:1 age:4    biased_lock:1 lock:2 (COOPs && biased object)
 //  narrowOop:32 unused:24 cms_free:1 unused:4 promo_bits:3 ----->| (COOPs && CMS promoted object)
 //  unused:21 size:35 -->| cms_free:1 unused:7 ------------------>| (COOPs && CMS free block)
-​~~~
+
 
 在64位虚拟机之下，mark-word是64bit大小的。25 31 1 4 1 2
 
-1bit偏向锁标志，2bit锁标志，4bit分代年龄，31 bithashcode
+1bit偏向锁标志，2bit锁标志，4bit分代年龄，31 bit hashcode
 
 未使用25bit，哈希值31bit，未使用1bit，分代年龄4bit，偏向锁标识1bit，锁类型2bit
 
 观察monitor字节码，在ObjectMonitor.hpp文件中找到源码描述
 
-​~~~c++
+
   ObjectMonitor() {
     _header       = NULL;
     _count        = 0; 记录个数
@@ -195,7 +194,7 @@ synchronized也可以保证变量的可见性：
     OwnerIsThread = 0 ;
     _previous_owner_tid = 0;
   }
-​~~~
+
 
 获取到了monitor对象的线程会进入owner区，并且count+1，如果线程调用了wait方法，此时会释放monitor对象，owner为空，count-1，同时该线程进入waitset列表，等待被唤醒
 
@@ -257,7 +256,7 @@ CAS实现原子操作有三大弊端:
 
 3.只能保证一个共享变量的原子操作，如果有多个共享变量的原子性操作需要得到保证，那么只能加锁，但是，还可以通过atomicreference类来保证引用对象之间的原子性，我们可以把多个变量放在一个对象里面进行CAS操作
 
-​~~~c++
+
   ObjectMonitor() {
     _header       = NULL;
     _count        = 0;
@@ -277,7 +276,7 @@ CAS实现原子操作有三大弊端:
     OwnerIsThread = 0 ;
     _previous_owner_tid = 0;
   }
-​~~~
+
 
 waitset和entryset保存有objectmonitor对象，处于wait状态的线程会被加入到waitset，处于block状态的线程会被加入到entryset中
 
