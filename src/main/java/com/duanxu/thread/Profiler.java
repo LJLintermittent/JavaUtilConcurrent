@@ -27,6 +27,4 @@ public class Profiler {
     public static final long consum() {
         return System.currentTimeMillis() - TIME_THREAD_LOCAL.get();
     }
-
-
 }
