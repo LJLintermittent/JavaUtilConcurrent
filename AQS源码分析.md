@@ -52,3 +52,73 @@ lock接口的实现类基本都是通过聚合了一个AQS的子类来完成线�
 ~~~
 
 上面的第一个代码块里面可以看到，如果第一个线程来了，发现共享资源的状态，也就是state变量为0，那么给它设置为1，然后将当前线程设置为持有锁的线程，这时候后面再来线程，还是一样的逻辑，直接cas，但肯定失败，因为线程1这时候还没有释放锁，那么会进入acquire方法
+
+现在讨论非公平锁状态下线程2进入后最终走到acquire里面，记住这里穿入的参数是1
+
+~~~java
+    public final void acquire(int arg) {
+        if (!tryAcquire(arg) &&
+            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+            selfInterrupt();
+    }
+~~~
+
+~~~java
+    static final class NonfairSync extends Sync {
+        private static final long serialVersionUID = 7316153563782823691L;
+
+        /**
+         * Performs lock.  Try immediate barge, backing up to normal
+         * acquire on failure.
+         */
+        final void lock() {
+            if (compareAndSetState(0, 1))
+                setExclusiveOwnerThread(Thread.currentThread());
+            else
+                acquire(1);
+        }
+
+        protected final boolean tryAcquire(int acquires) {
+            return nonfairTryAcquire(acquires);
+        }
+    }
+~~~
+
+这个tryAcquire方法在AQS里直接抛出异常，强制子类对他进行实现，模板方法设计模式，那么可要看到对于非公平锁，
+
+NonfairSync这个子类确实对这个发法进行了实现，调用了nonfairTryAcquire
+
+~~~java
+  final boolean nonfairTryAcquire(int acquires) {
+            final Thread current = Thread.currentThread();
+            int c = getState();
+            if (c == 0) {
+                if (compareAndSetState(0, acquires)) {
+                    setExclusiveOwnerThread(current);
+                    return true;
+                }
+            }
+      		// 这个判断逻辑是判断当前占有锁的线程是不是自己这个线程，如果是的话，那么证明你这现在是重入了一遍锁
+            // 那么state 会变为nextc的值，nextc的值是2，表示这个state状态变为了2，那么就是重入了
+            else if (current == getExclusiveOwnerThread()) {
+                int nextc = c + acquires;
+                if (nextc < 0) // overflow
+                    throw new Error("Maximum lock count exceeded");
+                setState(nextc);
+                return true;
+            }
+            return false;
+        }
+~~~
+
+这个时候线程2就开始执行nonfairTryAcquire方法，来判断state是不是0，如果是0，直接cas，如果不是0，在判断当前线程是不是独占拥有锁的线程，可以肯定的是，如果线程1这时候还没有进行释放的话，那么这个方法会返回false，最终上一个判断会对这个false取反，为true，那就接着往下走
+
+~~~java
+    public final void acquire(int arg) {
+        // !tryAcquire(arg) 为 true
+        if (!tryAcquire(arg) &&
+            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+            selfInterrupt();
+    }
+~~~
+
