@@ -122,3 +122,72 @@ NonfairSync这个子类确实对这个发法进行了实现，调用了nonfairTr
     }
 ~~~
 
+至此第一个tryAcquire分析完毕，当前是非公平锁模式
+
+那个假设线程2没有抢到锁，从tryAcquire中返回了false，取反为true，那么&&运算逻辑继续往下走，该到了入队操作了addWaiter
+
+~~~java
+    private Node addWaiter(Node mode) {
+        Node node = new Node(Thread.currentThread(), mode);
+        // Try the fast path of enq; backup to full enq on failure
+        // 目前这个tail为空，所以第一次进来pred为null，直接走enq方法
+        Node pred = tail;
+        if (pred != null) {
+            node.prev = pred;
+            if (compareAndSetTail(pred, node)) {
+                pred.next = node;
+                return node;
+            }
+        }
+        enq(node);
+        return node;
+    }
+~~~
+
+这里面一上来创建一个node，把当前线程包裹进去，相当于把当前线程包装为链表这个数据结构的一个节点，进行入队
+
+~~~java
+    private Node enq(final Node node) {
+        for (;;) {
+            Node t = tail;
+            if (t == null) { // Must initialize
+                if (compareAndSetHead(new Node()))
+                    tail = head;
+            } else {
+                node.prev = t;
+                if (compareAndSetTail(t, node)) {
+                    t.next = node;
+                    return t;
+                }
+            }
+        }
+    }
+~~~
+
+这个非常核心，可以看到封装好了线程2的node以后，执行enq，但是刚开始由于tail属性为空，所以compareAndSetHead传进去了一个空的系统自己创建的node作为一个头结点，这个节点并不是我们的抢占失败的线程节点，而是代码new出来的一个空节点，哑节点
+
+由于每一个node都有一些属性，比如thread，waitstatus等，那么对于这个哑节点来说thread为null，waitstatus为0，基本数据类型作为静态的成员变量，初始值为0
+
+由于是死循环，第二次循环的时候这个tail已经指向了哑节点，所以t不为空，进入第二个代码块，这个代码块的主要作用是将哑节点的next指针指向新加进来的线程2节点，线程2节点的prev指针指向哑节点，并且tail指针指向新加进来的线程2节点，这时候相当于把第一个进来抢占的线程放到了队列中
+
+~~~java
+    private Node addWaiter(Node mode) {
+        Node node = new Node(Thread.currentThread(), mode);
+        // Try the fast path of enq; backup to full enq on failure
+        Node pred = tail;
+        if (pred != null) {
+            node.prev = pred;
+            if (compareAndSetTail(pred, node)) {
+                pred.next = node;
+                return node;
+            }
+        }
+        enq(node);
+        return node;
+    }
+~~~
+
+假设这时候来了线程3，前面逻辑不用多说，进入addwaiter，发现这时候这个tail指针指向就不为空了，因为这个时候tail指针指向了线程2这个node节点，但是一定要记住线程2前面一直会有一个哑节点，那么这时候pred节点，也就是tail指针指向的节点，不为空了，那么不会进入enq这个方法，直接在addwaiter里面做设置尾节点的操作，并且让最后一个节点与倒数第二个节点之间建立起联系，也就是next指针和prev指针。
+
+#### 分析到目前为止，线程1独占着锁，队列里没有它，线程2跟在队列中的哑节点后面，线程3跟在线程2后面
+
