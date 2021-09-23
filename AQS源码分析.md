@@ -207,6 +207,8 @@ NonfairSync这个子类确实对这个发法进行了实现，调用了nonfairTr
                     return interrupted;
                 }
                 if (shouldParkAfterFailedAcquire(p, node) &&
+                   // 这块线程被阻塞了，park住了，等到后面unpark了以后，由于死循环，继续执行，tryAcquire，最终会成功获取
+                   // 将state置为1，将自己线程设置为独占锁的线程
                     parkAndCheckInterrupt())
                     interrupted = true;
             }
@@ -283,3 +285,106 @@ final Node p = node.predecessor();这个方法返回一个队列的第一个节�
 
 接下来分析线程1的unlock方法
 
+~~~java
+   protected final boolean tryRelease(int releases) {
+            int c = getState() - releases;
+            if (Thread.currentThread() != getExclusiveOwnerThread())
+                throw new IllegalMonitorStateException();
+            boolean free = false;
+            if (c == 0) {
+                free = true;
+                setExclusiveOwnerThread(null);
+            }
+            setState(c);
+            return free;
+        }
+~~~
+
+经过前面一系列模板方法的跳动，最终来到这块，获取state值，如果state减到了0，那么就相当于线程1此时将共享资源的状态标志改为了0，表示共享资源现在是可获取的状态，然后将线程1取消独占，然后设置完state以后返回true，结束方法
+
+~~~java
+    public final boolean release(int arg) {
+        if (tryRelease(arg)) {
+            Node h = head;
+            if (h != null && h.waitStatus != 0)
+                unparkSuccessor(h);
+            return true;
+        }
+        return false;
+    }
+~~~
+
+第一个判断条件返回了true，然后h是哨兵节点，哨兵节点当然不等于null，并且waitstatus == -1
+
+进入unparkSuccessor
+
+~~~java
+    private void unparkSuccessor(Node node) {
+        /*
+         * If status is negative (i.e., possibly needing signal) try
+         * to clear in anticipation of signalling.  It is OK if this
+         * fails or if status is changed by waiting thread.
+         */
+        int ws = node.waitStatus;
+        if (ws < 0)
+            compareAndSetWaitStatus(node, ws, 0);
+
+        /*
+         * Thread to unpark is held in successor, which is normally
+         * just the next node.  But if cancelled or apparently null,
+         * traverse backwards from tail to find the actual
+         * non-cancelled successor.
+         */
+        Node s = node.next;
+        if (s == null || s.waitStatus > 0) {
+            s = null;
+            for (Node t = tail; t != null && t != node; t = t.prev)
+                if (t.waitStatus <= 0)
+                    s = t;
+        }
+        if (s != null)
+            LockSupport.unpark(s.thread);
+    }
+~~~
+
+这个方法会重新将哑节点的waitstatus置为0，然后将哑节点的下一个节点由于不等于null，LockSupport.unpark(s.thread);进行解锁
+
+这块一解锁，前面park的地方就该开始重新工作
+
+~~~java
+    final boolean acquireQueued(final Node node, int arg) {
+        boolean failed = true;
+        try {
+            boolean interrupted = false;
+            for (;;) {
+                final Node p = node.predecessor();
+                if (p == head && tryAcquire(arg)) {
+                    setHead(node);
+                    p.next = null; // help GC
+                    failed = false;
+                    return interrupted;
+                }
+                if (shouldParkAfterFailedAcquire(p, node) &&
+                   // 这块线程被阻塞了，park住了，等到后面unpark了以后，由于死循环，继续执行，tryAcquire，最终会成功获取
+                   // 将state置为1，将自己线程设置为独占锁的线程
+                    parkAndCheckInterrupt())
+                    interrupted = true;
+            }
+        } finally {
+            if (failed)
+                cancelAcquire(node);
+        }
+    }
+~~~
+
+~~~java
+    private void setHead(Node node) {
+        head = node;
+        node.thread = null;
+        node.prev = null;
+    }
+~~~
+
+这个的逻辑就是线程2出队的逻辑，可以看到线程2的出队逻辑是将自己设置为头指针指向的节点，并且自己的前指针设置为null，这样子的话系统第一次创建的那个哑节点现在只有一个指向线程2node的指针， 而没有任何的引用指向它自己，所以doug lea在那行代码后面贴心的写了一个注释，help gc。告诉程序员这是让哑节点没有任何引用了，最终会被gc掉。而把线程2的thread属性也设置null，那么线程2的那个节点就是新的哑节点
+
+至此线程2去办理业务，线程2的node的thread属性变为null，线程2的node就变为了新的哑节点

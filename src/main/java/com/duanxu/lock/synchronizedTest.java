@@ -18,6 +18,7 @@ public class synchronizedTest {
     public static void main(String[] args) throws InterruptedException {
         ReentrantLock lock = new ReentrantLock(false);
         lock.lock();
+        lock.unlock();
         for (int i = 0; i < 10; i++) {
             new Thread(() -> {
                 for (int j = 0; j < 10000; j++) {
