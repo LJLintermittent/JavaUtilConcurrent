@@ -191,3 +191,95 @@ NonfairSync这个子类确实对这个发法进行了实现，调用了nonfairTr
 
 #### 分析到目前为止，线程1独占着锁，队列里没有它，线程2跟在队列中的哑节点后面，线程3跟在线程2后面
 
+接下来该分析最后一个重要的方法acquireQueued(addWaiter(Node.EXCLUSIVE), arg))，addwaiter返回值是一个node，作为参数传递给acquireQueued
+
+~~~java
+    final boolean acquireQueued(final Node node, int arg) {
+        boolean failed = true;
+        try {
+            boolean interrupted = false;
+            for (;;) {
+                final Node p = node.predecessor();
+                if (p == head && tryAcquire(arg)) {
+                    setHead(node);
+                    p.next = null; // help GC
+                    failed = false;
+                    return interrupted;
+                }
+                if (shouldParkAfterFailedAcquire(p, node) &&
+                    parkAndCheckInterrupt())
+                    interrupted = true;
+            }
+        } finally {
+            if (failed)
+                cancelAcquire(node);
+        }
+    }
+~~~
+
+final Node p = node.predecessor();这个方法返回一个队列的第一个节点，也就是哑节点
+
+~~~java
+   if (p == head && tryAcquire(arg)) {
+                    setHead(node);
+                    p.next = null; // help GC
+                    failed = false;
+                    return interrupted;
+                }
+~~~
+
+这里面第一个判断，哑节点是不是头结点，为true，然后继续抢占，但是假如线程1还没走，线程2还是抢占失败
+
+```java
+    if (shouldParkAfterFailedAcquire(p, node) &&
+        parkAndCheckInterrupt())
+        interrupted = true;
+}
+```
+
+接下来进入shouldParkAfterFailedAcquire，听名字就知道他是抢占失败以后应该要借助locksupport的支持来对线程进行阻塞
+
+~~~java
+ private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
+        int ws = pred.waitStatus;
+        if (ws == Node.SIGNAL)
+            /*
+             * This node has already set status asking a release
+             * to signal it, so it can safely park.
+             */
+            return true;
+        if (ws > 0) {
+            /*
+             * Predecessor was cancelled. Skip over predecessors and
+             * indicate retry.
+             */
+            do {
+                node.prev = pred = pred.prev;
+            } while (pred.waitStatus > 0);
+            pred.next = node;
+        } else {
+            /*
+             * waitStatus must be 0 or PROPAGATE.  Indicate that we
+             * need a signal, but don't park yet.  Caller will need to
+             * retry to make sure it cannot acquire before parking.
+             */
+            compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
+        }
+        return false;
+    }
+~~~
+
+其实这个方法的目的就是为了改变哑节点的waitstatus的值，从默认的0变为-1，由于这个方法被外面的acquireQueued的死循环进行包裹，所以下次再进来执行的时候发现哑节点的ws变为了-1，那么这个方法返回true，一旦返回true，就会接着往下走parkAndCheckInterrupt，这里面才是真正对线程2进行阻塞
+
+~~~java
+    private final boolean parkAndCheckInterrupt() {
+        LockSupport.park(this);
+        return Thread.interrupted();
+    }
+
+~~~
+
+到此线程2的node才会在队列中坐稳，后面的线程3的node也跟线程2的node一样，在等候区坐稳，等待线程1的解锁
+
+接下来分析线程1的unlock方法
+
