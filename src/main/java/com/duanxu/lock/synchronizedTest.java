@@ -1,5 +1,7 @@
 package com.duanxu.lock;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * Description:
  * date: 2021/8/19 23:33
@@ -14,6 +16,8 @@ public class synchronizedTest {
     private static int counter = 0;
 
     public static void main(String[] args) throws InterruptedException {
+        ReentrantLock lock = new ReentrantLock(false);
+        lock.lock();
         for (int i = 0; i < 10; i++) {
             new Thread(() -> {
                 for (int j = 0; j < 10000; j++) {

@@ -19,3 +19,36 @@ AQS定义了两种对资源的获取方式，一种是独占式，一种是共�
 2.如果在第一次cas失败后，和公平锁一样会进入到tryacquire方法，在这个方法中，如果发现这个时候state==0了，也就是说锁被释放了，非公平锁又会开始一次cas抢锁，但是公平锁会判断等待队列里面是否有线程正在等待，如果有线程（Node节点），那么公平锁会自己乖乖的到队列末尾排队
 
 注意到非公平锁其实比公平锁多了两次cas操作，但是如果两次cas都失败了，那么后面就跟公平锁一样，都要进入队列进行等待
+
+lock接口的实现类基本都是通过聚合了一个AQS的子类来完成线程的访问控制
+
+通过源码发现，非公平锁一上来调用lock，然后代理到sync的lock，然后这个lock是抽象方法，转到nonfairsync的lock，可以看到非公锁里面一上来就是cas抢占，抢到了就设置当前当前线程为独占资源的线程，，否则进入acquire
+
+~~~java
+        final void lock() {
+            if (compareAndSetState(0, 1))
+                setExclusiveOwnerThread(Thread.currentThread());
+            else
+                acquire(1);
+        }
+~~~
+
+~~~java
+    public final void acquire(int arg) {
+        if (!tryAcquire(arg) &&
+            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+            selfInterrupt();
+    }
+~~~
+
+这个acquire可以看做是一个模板，因为里面第一个方法tryacquire是一个抽象方法，对于不同的锁又有不同的实现：
+
+~~~java
+        protected final boolean tryAcquire(int acquires) {
+            return nonfairTryAcquire(acquires);
+        }
+    }
+
+~~~
+
+上面的第一个代码块里面可以看到，如果第一个线程来了，发现共享资源的状态，也就是state变量为0，那么给它设置为1，然后将当前线程设置为持有锁的线程，这时候后面再来线程，还是一样的逻辑，直接cas，但肯定失败，因为线程1这时候还没有释放锁，那么会进入acquire方法
